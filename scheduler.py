@@ -59,6 +59,7 @@ class AdaptiveScheduler:
     def _release_periodic_tasks(self):
         for task in self.completed_tasks[:]:
             if task.period > 0 and self.current_time >= task.next_deadline:
+                print(f"Re-releasing task {task.name} at time {self.current_time}")
                 new_task = Task(
                     f"{task.name}_{self.total_releases}", task.execution_time, task.period,
                     task.relative_deadline, task.base_priority, arrival_time=self.current_time,
@@ -218,6 +219,7 @@ class AdaptiveScheduler:
         total_turnaround = 0.0
         total_wait = 0.0
         total_misses = 0
+        total_completion_time = 0.0  # Maximum completion time across all tasks
         cpu_busy_time = sum(end - start for _, start, end, _, _ in self.execution_log)
         cpu_util = (cpu_busy_time / (self.current_time * self.num_cores)) * 100 if self.current_time > 0 else 0.0
         avg_temp = sum(self.core_temperatures) / self.num_cores if self.num_cores > 0 else 0.0
@@ -225,6 +227,7 @@ class AdaptiveScheduler:
         for task in self.completed_tasks:
             turnaround = task.completion_time - task.arrival_time
             wait = turnaround - task.execution_time
+            total_completion_time = max(total_completion_time, task.completion_time)  # Update max completion time
             print(f"Task {task.name}: Arrival={task.arrival_time}, Completion={task.completion_time}, Exec={task.execution_time}, Turnaround={turnaround}, Wait={wait}")
             total_turnaround += turnaround
             total_wait += wait
@@ -236,6 +239,7 @@ class AdaptiveScheduler:
         miss_ratio = total_misses / self.total_releases if self.total_releases > 0 else 0.0
 
         return {
+            'total_completion_time': total_completion_time,  # Time when last task finished
             'avg_turnaround': avg_turnaround,
             'avg_wait': avg_wait,
             'cpu_util': cpu_util,

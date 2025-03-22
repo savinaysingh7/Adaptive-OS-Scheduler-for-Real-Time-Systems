@@ -392,8 +392,9 @@ class SchedulerApp:
             print("Simulation thread finished.")
             self.updating = False
             metrics = self.scheduler.compute_metrics()
-            messagebox.showinfo("Simulation Complete", 
-                                f"Time: {self.scheduler.current_time:.1f}s\n"
+            messagebox.showinfo("Simulation Complete",
+                                f"Total Completion Time: {metrics['total_completion_time']:.1f}s\n"
+                                f"Simulation Time: {self.scheduler.current_time:.1f}s\n"
                                 f"Avg Turnaround: {metrics['avg_turnaround']:.2f}s\n"
                                 f"Avg Wait: {metrics['avg_wait']:.2f}s\n"
                                 f"CPU Util: {metrics['cpu_util']:.1f}%\n"
@@ -411,6 +412,7 @@ class SchedulerApp:
             self.step_button.config(state=tk.DISABLED)
         else:
             self.master.after(100, self.check_simulation)
+
 
     def pause_simulation(self) -> None:
         if self.scheduler:
