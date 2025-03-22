@@ -154,6 +154,7 @@ class SchedulerApp:
         self.simulation_thread: Optional[threading.Thread] = None
         self.paused = False
         self.updating = True
+        self.data_lock = threading.Lock()  # Added for thread safety
         self.time_data: List[float] = []
         self.cpu_util_data: List[List[float]] = []
         self.temp_data: List[List[float]] = []
@@ -262,15 +263,16 @@ class SchedulerApp:
     def update_live_visualization(self) -> None:
         while self.updating:
             if self.scheduler and self.simulation_thread and self.simulation_thread.is_alive():
-                self.time_data.append(self.scheduler.current_time)
-                metrics = self.scheduler.compute_metrics()
-                cpu_util = [0] * self.scheduler.num_cores
-                for core_id, task in enumerate(self.scheduler.running_tasks):
-                    cpu_util[core_id] = 100 if task else 0
-                self.cpu_util_data.append(cpu_util)
-                self.temp_data.append(self.scheduler.core_temperatures.copy())
-                new_logs = [log for log in self.scheduler.execution_log if log not in self.gantt_data]
-                self.gantt_data.extend(new_logs)
+                with self.data_lock:  # Thread-safe access to shared data
+                    self.time_data.append(self.scheduler.current_time)
+                    metrics = self.scheduler.compute_metrics()
+                    cpu_util = [0] * self.scheduler.num_cores
+                    for core_id, task in enumerate(self.scheduler.running_tasks):
+                        cpu_util[core_id] = 100 if task else 0
+                    self.cpu_util_data.append(cpu_util)
+                    self.temp_data.append(self.scheduler.core_temperatures.copy())
+                    new_logs = [log for log in self.scheduler.execution_log if log not in self.gantt_data]
+                    self.gantt_data.extend(new_logs)
                 self.master.after(0, self._update_plots)
             time.sleep(0.5)
 
@@ -284,20 +286,23 @@ class SchedulerApp:
         num_cores = self.scheduler.num_cores
         self.ax_gantt.set_ylim(-0.5, num_cores - 0.5)
         self.ax_gantt.set_yticks(range(num_cores))
-        plotted_tasks = set()
-        for task_name, start, end, core_id, _ in self.gantt_data:
-            color = self.task_colors.get(task_name, 'gray')
-            rect = patches.Rectangle((start, core_id - 0.4), end - start, 0.8, fill=True, color=color, label=task_name if task_name not in plotted_tasks else None)
-            self.ax_gantt.add_patch(rect)
-            self.ax_gantt.text(start + (end - start) / 2, core_id, task_name, ha='center', va='center', fontsize=8)
-            plotted_tasks.add(task_name)
+        plotted_tasks = set()  # Track tasks to ensure unique labels in legend
+        with self.data_lock:  # Thread-safe access to gantt_data
+            for task_name, start, end, core_id, _ in self.gantt_data:
+                color = self.task_colors.get(task_name, 'gray')
+                label = task_name if task_name not in plotted_tasks else None
+                rect = patches.Rectangle((start, core_id - 0.4), end - start, 0.8, fill=True, color=color, label=label)
+                self.ax_gantt.add_patch(rect)
+                self.ax_gantt.text(start + (end - start) / 2, core_id, task_name, ha='center', va='center', fontsize=8)
+                plotted_tasks.add(task_name)
         self.ax_gantt.set_xlim(0, max(self.time_data) + 1 if self.time_data else 10)
         self.ax_gantt.legend(loc='upper right')
 
         self.ax_cpu.clear()
         self.ax_cpu.set_title("CPU Utilization per Core (%)")
         for core_id in range(num_cores):
-            core_data = [data[core_id] for data in self.cpu_util_data]
+            with self.data_lock:  # Thread-safe access to cpu_util_data
+                core_data = [data[core_id] for data in self.cpu_util_data]
             self.ax_cpu.plot(self.time_data, core_data, label=f"Core {core_id}")
         self.ax_cpu.set_ylim(0, 100)
         self.ax_cpu.legend()
@@ -305,7 +310,8 @@ class SchedulerApp:
         self.ax_temp.clear()
         self.ax_temp.set_title("Core Temperatures (°C)")
         for core_id in range(num_cores):
-            temp_data = [data[core_id] for data in self.temp_data]
+            with self.data_lock:  # Thread-safe access to temp_data
+                temp_data = [data[core_id] for data in self.temp_data]
             self.ax_temp.plot(self.time_data, temp_data, label=f"Core {core_id}")
         self.ax_temp.set_ylim(20, MAX_TEMPERATURE + 10)
         self.ax_temp.legend()
@@ -412,7 +418,6 @@ class SchedulerApp:
             self.step_button.config(state=tk.DISABLED)
         else:
             self.master.after(100, self.check_simulation)
-
 
     def pause_simulation(self) -> None:
         if self.scheduler:

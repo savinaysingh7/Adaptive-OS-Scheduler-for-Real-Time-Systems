@@ -1,6 +1,4 @@
-# resource.py
 from typing import List, Optional
-
 from task import Task
 
 class Resource:
@@ -9,6 +7,6 @@ class Resource:
                  held_by: Optional[Task] = None, waiting_tasks: List[Task] = None):
         self.name = name
         self.is_preemptible = is_preemptible
-        self.access_ceiling = access_ceiling
+        self.access_ceiling = access_ceiling  # Highest priority (lowest number) of tasks that might use this resource
         self.held_by = held_by
         self.waiting_tasks = waiting_tasks if waiting_tasks is not None else []
