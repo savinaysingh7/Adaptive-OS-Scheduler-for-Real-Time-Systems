@@ -47,10 +47,13 @@ class AdaptiveScheduler:
                     self.ready_queue.append(task)
                     self.pending_tasks.remove(task)
 
-            self.current_time += 1.0
+            # Schedule tasks before incrementing time
             self._release_periodic_tasks()
             self._update_running_tasks()
             self.status_callback(self.current_time)
+
+            # Increment time after scheduling
+            self.current_time += 1.0
             time.sleep(speed)  # Use the speed value from GUI
 
     def _release_periodic_tasks(self):
@@ -222,6 +225,7 @@ class AdaptiveScheduler:
         for task in self.completed_tasks:
             turnaround = task.completion_time - task.arrival_time
             wait = turnaround - task.execution_time
+            print(f"Task {task.name}: Arrival={task.arrival_time}, Completion={task.completion_time}, Exec={task.execution_time}, Turnaround={turnaround}, Wait={wait}")
             total_turnaround += turnaround
             total_wait += wait
             if task.completion_time > task.next_deadline:
