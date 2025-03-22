@@ -11,6 +11,7 @@ class AdaptiveScheduler:
         self.status_callback = status_callback
         self.enable_fault_tolerance = enable_fault_tolerance
         self.ready_queue: List[Task] = []
+        self.pending_tasks: List[Task] = []  # New list for tasks waiting for their arrival time
         self.running_tasks = [None] * num_cores
         self.current_time = 0.0
         self.execution_log = []
@@ -24,10 +25,9 @@ class AdaptiveScheduler:
         self.time_slice = 2.0  # For RR, adjust as needed
 
     def add_task(self, task: Task) -> bool:
-        task.arrival_time = self.current_time
         task.remaining_time = task.execution_time
-        task.next_deadline = self.current_time + task.relative_deadline if task.period > 0 else task.relative_deadline
-        self.ready_queue.append(task)
+        task.next_deadline = task.arrival_time + task.relative_deadline if task.period > 0 else task.relative_deadline
+        self.pending_tasks.append(task)  # Add to pending tasks instead of ready queue
         self.total_releases += 1
         return True
 
@@ -35,30 +35,35 @@ class AdaptiveScheduler:
         self.algorithm = new_algorithm
         print(f"Switched to {new_algorithm}")
 
-    def schedule(self):
-        while self.ready_queue or any(self.running_tasks):
+    def schedule(self, speed: float = 0.5):
+        while self.pending_tasks or self.ready_queue or any(self.running_tasks):
             if self.paused:
                 self.step_event.wait()
                 self.step_event.clear()
+
+            # Move tasks from pending to ready if their arrival time has been reached
+            for task in self.pending_tasks[:]:
+                if self.current_time >= task.arrival_time:
+                    self.ready_queue.append(task)
+                    self.pending_tasks.remove(task)
 
             self.current_time += 1.0
             self._release_periodic_tasks()
             self._update_running_tasks()
             self.status_callback(self.current_time)
-            time.sleep(0.5)  # Could tie to GUI speed_slider
+            time.sleep(speed)  # Use the speed value from GUI
 
     def _release_periodic_tasks(self):
         for task in self.completed_tasks[:]:
             if task.period > 0 and self.current_time >= task.next_deadline:
                 new_task = Task(
                     f"{task.name}_{self.total_releases}", task.execution_time, task.period,
-                    task.relative_deadline, task.base_priority, dependencies=task.dependencies,
-                    preemption_threshold=task.preemption_threshold
+                    task.relative_deadline, task.base_priority, arrival_time=self.current_time,
+                    dependencies=task.dependencies, preemption_threshold=task.preemption_threshold
                 )
-                new_task.arrival_time = self.current_time
                 new_task.remaining_time = new_task.execution_time
                 new_task.next_deadline = self.current_time + new_task.relative_deadline
-                self.ready_queue.append(new_task)
+                self.pending_tasks.append(new_task)  # Add to pending tasks
                 self.total_releases += 1
                 self.completed_tasks.remove(task)
 

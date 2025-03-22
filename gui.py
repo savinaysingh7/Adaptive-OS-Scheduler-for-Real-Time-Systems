@@ -36,18 +36,22 @@ class ToolTip:
             self.tip_window = None
 
 class TaskDialog(tk.Toplevel):
-    """Dialog for adding or editing tasks."""
     def __init__(self, parent, callback, existing_task: Optional[Task] = None):
         super().__init__(parent)
         self.title("Task Editor" if existing_task else "Add Task")
         self.callback = callback
         self.task = existing_task
-        self.geometry("300x350")
+        self.geometry("300x400")  # Increased height for new field
 
         tk.Label(self, text="Task Name:").pack(pady=2)
         self.name_entry = tk.Entry(self)
         self.name_entry.pack()
         self.name_entry.insert(0, existing_task.name if existing_task else f"T{int(time.time())%10000}")
+
+        tk.Label(self, text="Arrival Time (ticks):").pack(pady=2)
+        self.arrival_entry = tk.Entry(self)
+        self.arrival_entry.pack()
+        self.arrival_entry.insert(0, str(existing_task.arrival_time) if existing_task else "0")
 
         tk.Label(self, text="Exec Time (ticks):").pack(pady=2)
         self.exec_entry = tk.Entry(self)
@@ -82,27 +86,55 @@ class TaskDialog(tk.Toplevel):
         tk.Button(self, text="Save" if existing_task else "Add", command=self.on_save).pack(pady=10)
 
     def on_save(self):
-        """Save task details and invoke callback."""
         try:
             name = self.name_entry.get().strip()
             if not name:
                 raise ValueError("Task name is required.")
-            exec_time = float(self.exec_entry.get())
+            
+            arrival_time_str = self.arrival_entry.get().strip()
+            if not arrival_time_str:
+                raise ValueError("Arrival time is required.")
+            arrival_time = float(arrival_time_str)
+            if arrival_time < 0:
+                raise ValueError("Arrival time must be non-negative.")
+
+            exec_time_str = self.exec_entry.get().strip()
+            if not exec_time_str:
+                raise ValueError("Execution time is required.")
+            exec_time = float(exec_time_str)
             if exec_time <= 0:
                 raise ValueError("Execution time must be greater than 0.")
-            period = int(self.period_entry.get())
-            deadline = int(self.deadline_entry.get())
+
+            period_str = self.period_entry.get().strip()
+            if not period_str:
+                raise ValueError("Period is required.")
+            period = int(period_str)
+
+            deadline_str = self.deadline_entry.get().strip()
+            if not deadline_str:
+                raise ValueError("Deadline is required.")
+            deadline = int(deadline_str)
             if deadline <= 0:
                 raise ValueError("Deadline must be greater than 0.")
-            priority = int(self.priority_entry.get())
-            threshold = int(self.threshold_entry.get())
+
+            priority_str = self.priority_entry.get().strip()
+            if not priority_str:
+                raise ValueError("Priority is required.")
+            priority = int(priority_str)
+
+            threshold_str = self.threshold_entry.get().strip()
+            if not threshold_str:
+                raise ValueError("Preemption threshold is required.")
+            threshold = int(threshold_str)
+
             deps = [d.strip() for d in self.deps_entry.get().split(",") if d.strip()]
-            task = self.task or Task(name, exec_time, period, deadline, priority, dependencies=deps, preemption_threshold=threshold)
+            task = self.task or Task(name, exec_time, period, deadline, priority, arrival_time=arrival_time, dependencies=deps, preemption_threshold=threshold)
             if self.task:
                 task.execution_time = exec_time
                 task.period = period
                 task.relative_deadline = deadline
                 task.base_priority = priority
+                task.arrival_time = arrival_time
                 task.preemption_threshold = threshold
                 task.dependencies = deps
             self.callback(task)
@@ -193,10 +225,10 @@ class SchedulerApp:
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         self.task_frame = ttk.Frame(self.main_frame)
         self.task_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.task_tree = ttk.Treeview(self.task_frame, columns=("Name", "Exec", "Period", "Deadline", "Prio", "Threshold", "Deps"), show='headings')
-        for col, text in zip(self.task_tree["columns"], ["Name", "Exec Time", "Period", "Deadline", "Priority", "Preemption", "Dependencies"]):
+        self.task_tree = ttk.Treeview(self.task_frame, columns=("Name", "Exec", "Arrival", "Period", "Deadline", "Prio", "Threshold", "Deps"), show='headings')
+        for col, text in zip(self.task_tree["columns"], ["Name", "Exec Time", "Arrival", "Period", "Deadline", "Priority", "Preemption", "Dependencies"]):
             self.task_tree.heading(col, text=text)
-            self.task_tree.column(col, width=100)
+            self.task_tree.column(col, width=80)
         self.task_tree.pack(fill=tk.BOTH, expand=True)
 
         self.core_frame = ttk.Frame(self.main_frame)
@@ -293,12 +325,12 @@ class SchedulerApp:
         if selected and not self.simulation_thread:
             item = selected[0]
             values = self.task_tree.item(item, "values")
-            task = Task(values[0], float(values[1]), int(values[2]), int(values[3]), int(values[4]), 
-                        [d.strip() for d in values[6].split(",") if d.strip()], preemption_threshold=int(values[5]))
+            task = Task(values[0], float(values[1]), int(values[3]), int(values[4]), int(values[5]), 
+                        [d.strip() for d in values[7].split(",") if d.strip()], preemption_threshold=int(values[6]), arrival_time=float(values[2]))
             TaskDialog(self.master, lambda t: self.edit_task_callback(item, t), task)
 
     def edit_task_callback(self, item: str, task: Task) -> None:
-        self.task_tree.item(item, values=(task.name, task.execution_time, task.period, task.relative_deadline, 
+        self.task_tree.item(item, values=(task.name, task.execution_time, task.arrival_time, task.period, task.relative_deadline, 
                                           task.base_priority, task.preemption_threshold, ", ".join(task.dependencies)))
 
     def add_task_callback(self, task: Task) -> None:
@@ -323,12 +355,12 @@ class SchedulerApp:
             with threading.Lock():
                 if self.scheduler.add_task(task):
                     self.master.after(0, lambda: self.task_tree.insert("", "end", values=(
-                        task.name, task.execution_time, task.period, task.relative_deadline, 
+                        task.name, task.execution_time, task.arrival_time, task.period, task.relative_deadline, 
                         task.base_priority, task.preemption_threshold, ", ".join(task.dependencies))))
                     print(f"Task {task.name} added dynamically during simulation. Ready queue: {self.scheduler.ready_queue}")
         else:
             if self.scheduler.add_task(task):
-                self.task_tree.insert("", "end", values=(task.name, task.execution_time, task.period, task.relative_deadline, 
+                self.task_tree.insert("", "end", values=(task.name, task.execution_time, task.arrival_time, task.period, task.relative_deadline, 
                                                          task.base_priority, task.preemption_threshold, ", ".join(task.dependencies)))
                 print(f"Task {task.name} added to scheduler. Ready queue: {self.scheduler.ready_queue}")
 
