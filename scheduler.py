@@ -295,64 +295,7 @@ class AdaptiveScheduler:
                     task.start_time = self.current_time
                     task.last_update_time = self.current_time
                     self.running_tasks[core] = task
-"""def hybrid_scheduler(tasks, current_time, resource_manager):
-    """
-    Smart task scheduler that balances urgency, fairness, and efficiency:
-    - Urgency: Prioritizes tasks with near deadlines.
-    - Fairness: Prevents starvation by giving weight to waiting tasks.
-    - Efficiency: Prefers shorter tasks to improve throughput.
-    - Adapts dynamically to system load and available resources.
-    """
 
-    # Find tasks that have arrived and still need to be completed
-    ready_tasks = [task for task in tasks if current_time >= task.arrival_time and task.remaining_time > 0]
-    
-    if not ready_tasks:
-        return None  # No tasks to schedule right now
-
-    # Adjust weight distribution based on system load (number of active tasks)
-    task_count = len(ready_tasks)
-    urgency_weight = 0.5 + (0.1 * (task_count / 10))  # More tasks = higher urgency
-    fairness_weight = 0.3 + (0.1 * (task_count / 15))  # More tasks = fairness matters more
-    efficiency_weight = 1.0 - (urgency_weight + fairness_weight)  # Remaining weight for short tasks
-
-    # Find the max wait time and max burst time for normalization
-    longest_wait = max((current_time - task.arrival_time for task in ready_tasks), default=1)
-    longest_burst = max((task.remaining_time for task in ready_tasks), default=1)
-
-    best_task = None
-    highest_priority = float('-inf')
-
-    for task in ready_tasks:
-        # 1️⃣ **Urgency score**: Tasks with closer deadlines get higher priority
-        time_left = task.deadline - current_time
-        urgency_score = 1.0 if time_left <= 0 else min(1.0 / (time_left + 1), 1.0)
-
-        # 2️⃣ **Fairness score**: Longer-waiting tasks get more priority (normalized)
-        wait_time = current_time - task.arrival_time
-        fairness_score = wait_time / longest_wait if longest_wait > 0 else 0
-
-        # 3️⃣ **Efficiency score**: Shorter tasks are preferred to increase throughput
-        efficiency_score = 1.0 - (task.remaining_time / longest_burst) if longest_burst > 0 else 0
-
-        # 4️⃣ **Prevent starvation**: If a task has waited too long, boost its priority
-        if wait_time > 20:
-            fairness_score += 0.2  
-
-        # Calculate final priority score
-        priority_score = (
-            (urgency_weight * urgency_score) +
-            (fairness_weight * fairness_score) +
-            (efficiency_weight * efficiency_score)
-        )
-
-        # Only consider tasks that can actually run (based on resource availability)
-        if resource_manager.is_task_runnable(task):
-            if priority_score > highest_priority:
-                highest_priority = priority_score
-                best_task = task  # Pick the task with the best score
-
-    return best_task  # Return the chosen task (or None if none are runnable)
 
     def compute_metrics(self):
         """Compute and return scheduling metrics including energy and temperature."""
@@ -428,33 +371,32 @@ class AdaptiveScheduler:
     highest_priority = float('-inf')
 
     for task in ready_tasks:
-        # 1️⃣ **Urgency score**: Tasks with closer deadlines get higher priority
+       
         time_left = task.deadline - current_time
         urgency_score = 1.0 if time_left <= 0 else min(1.0 / (time_left + 1), 1.0)
 
-        # 2️⃣ **Fairness score**: Longer-waiting tasks get more priority (normalized)
+      
         wait_time = current_time - task.arrival_time
         fairness_score = wait_time / longest_wait if longest_wait > 0 else 0
 
-        # 3️⃣ **Efficiency score**: Shorter tasks are preferred to increase throughput
+      
         efficiency_score = 1.0 - (task.remaining_time / longest_burst) if longest_burst > 0 else 0
 
-        # 4️⃣ **Prevent starvation**: If a task has waited too long, boost its priority
         if wait_time > 20:
             fairness_score += 0.2  
 
-        # Calculate final priority score
+      
         priority_score = (
             (urgency_weight * urgency_score) +
             (fairness_weight * fairness_score) +
             (efficiency_weight * efficiency_score)
         )
 
-        # Only consider tasks that can actually run (based on resource availability)
+       
         if resource_manager.is_task_runnable(task):
             if priority_score > highest_priority:
                 highest_priority = priority_score
                 best_task = task  # Pick the task with the best score
 
-    return best_task  # Return the chosen task (or None if none are runnable)
+    return best_task  #
 """""
