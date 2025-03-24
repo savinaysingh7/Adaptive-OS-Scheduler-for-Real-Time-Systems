@@ -2,7 +2,8 @@ import argparse
 from scheduler import AdaptiveScheduler
 from task import Task
 from gui import SchedulerApp
-import tkinter as tk
+from ttkthemes import ThemedTk  # Import ThemedTk instead of tk.Tk
+import sys
 
 def run_cli_mode():
     """Run the scheduler in CLI mode with user-specified tasks."""
@@ -27,20 +28,18 @@ def run_cli_mode():
     )
     args = parser.parse_args()
 
-    # Initialize scheduler
     scheduler = AdaptiveScheduler(
         algorithm=args.algorithm,
         num_cores=args.cores,
         base_context_overhead=0.1,
-        status_callback=lambda x: None,  # No status callback for CLI
+        status_callback=lambda x: None,
         enable_fault_tolerance=False
     )
 
-    # Parse and add tasks
     for task_str in args.tasks:
         parts = task_str.split()
         if len(parts) < 5:
-            print(f"Skipping invalid task: {task_str}. Expected format: name execution_time period relative_deadline priority [arrival_time]")
+            print(f"Skipping invalid task: {task_str}")
             continue
         name = parts[0]
         try:
@@ -64,11 +63,9 @@ def run_cli_mode():
         scheduler.add_task(task)
         print(f"Added task: {task}")
 
-    # Run the scheduler
     print("\nStarting simulation...")
     scheduler.run()
 
-    # Display results
     print("\nExecution Log:")
     for entry in scheduler.execution_log:
         task_name, start, end, core, reason = entry
@@ -82,15 +79,12 @@ def run_cli_mode():
 
 def main():
     """Main entry point for the scheduler application."""
-    # Check if CLI arguments are provided
     if len(sys.argv) > 1:
         run_cli_mode()
     else:
-        # Default to GUI mode
-        root = tk.Tk()
+        root = ThemedTk()  # Use ThemedTk instead of tk.Tk
         app = SchedulerApp(root)
         root.mainloop()
 
 if __name__ == "__main__":
-    import sys
     main()
