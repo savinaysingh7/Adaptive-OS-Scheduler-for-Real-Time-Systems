@@ -22,10 +22,9 @@ An interactive simulation tool for real-time scheduling algorithms with live vis
 - 🎛️ Multi-algorithm support (9+ scheduling strategies)
 - 📊 Live Gantt chart visualization
 - 🌡️ Real-time core status monitoring (temperature/frequency)
-- 🔄 Dynamic algorithm switching
+- 🔄 On-Demand algorithm switching
 - 🛠️ Interactive task management
 - ⚡ Energy consumption tracking
-- 🔒 Deadlock simulation/resolution
 - 🖥️ Dual interface (GUI + CLI)
 
 -Adaptive Scheduling Algorithm - Dynamically prioritizes tasks based on workload and system constraints.
